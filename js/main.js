@@ -11,6 +11,7 @@ var obstacles2 = [];
 var gameSpeed;
 var keys = {};
 var levelsCompleted = JSON.parse(localStorage.getItem("levelsCompleted"));
+var levelCompletedCalled = false;
 
 const GROUND_HEIGHT = 100;
 const GROUND_HEIGHT_2 = 350;
@@ -18,15 +19,53 @@ const GROUND_HEIGHT_2 = 350;
 // Difficulty parameters
 var speed;
 var timer;
-var birdChances;
 var initialSpawnTimer;
-var spawnTimer;
 var initialSpawnTimer2;
+var spawnTimer;
 var spawnTimer2;
 var numberOfObstacles;
-var obstacleCounter = 0;
 var numberOfObstacles2;
+var obstacleCounter = 0;
 var obstacleCounter2 = 0;
+var currentLevel;
+
+// Array with all the possible parameters of a level
+var levelParams = JSON.parse(data); //JSON.parse(localStorage.getItem('levels'));
+var timeAlive = 0;
+timeAlive = setInterval(function() {
+    timeAlive++;
+}, 1000);
+var timeAliveRecord;
+if (localStorage.timeAliveRecord) {
+    timeAliveRecord = JSON.parse(localStorage.getItem('timeAliveRecord'));
+} else {
+    timeAliveRecord = [];
+}
+var averageTimeAlive;
+
+var rightLevelRecord;
+if (localStorage.rightLevelRecord) {
+    rightLevelRecord = JSON.parse(localStorage.getItem('rightLevelRecord'));
+} else {
+    rightLevelRecord = [];
+}
+
+var levelsPlayedParams = {};
+if (localStorage.levelsPlayedParams) {
+    levelsPlayedParams = JSON.parse(localStorage.getItem('levelsPlayedParams'));
+} else {
+    levelsPlayedParams[1] = levelParams[0].params;
+}
+
+var rightLevel;
+if (localStorage.rightLevel) {
+    rightLevel = localStorage.getItem('rightLevel');
+} else {
+    rightLevel = 0; //Math.floor(Math.random() * levelParams.length);
+}
+if (rightLevelRecord.length === 0) {
+    rightLevelRecord.push(levelParams[rightLevel].level)
+}
 
 // Event listeners
 document.addEventListener('keydown', function(event) {
@@ -57,77 +96,17 @@ class Text {
 }
 
 // Game Functions
-function Setup(level) {    
-    switch(level) {
-        case 1:
-          speed = 3;
-          timer = 200;
-          birdChances = 0.2;
-          numberOfObstacles = 5;
-          numberOfObstacles2 = 5;
-          break;
-        case 2:
-          speed = 4;
-          timer = 190;
-          birdChances = 0.2; 
-          numberOfObstacles = 15; 
-          numberOfObstacles2 = 15; 
-          break;
-        case 3:
-          speed = 5;
-          timer = 180;
-          birdChances = 0.3;
-          numberOfObstacles = 20;
-          numberOfObstacles2 = 20;
-          break;
-        case 4:
-          speed = 6;
-          timer = 160;
-          birdChances = 0.3;
-          numberOfObstacles = 25;
-          numberOfObstacles2 = 25;
-          break;
-        case 5:
-          speed = 7;
-          timer = 150;
-          birdChances = 0.4;
-          numberOfObstacles = 30;
-          numberOfObstacles2 = 25;
-          break;
-        case 6:
-          speed = 8;
-          timer = 130;
-          birdChances = 0.4;
-          numberOfObstacles = 35;
-          numberOfObstacles2 = 35;
-          break;
-        case 7:
-          speed = 9;
-          timer = 120;
-          birdChances = 0.4;
-          numberOfObstacles = 40;
-          numberOfObstacles2 = 40;
-          break;
-        case 8:
-          speed = 10;
-          timer = 110;
-          birdChances = 0.5;
-          numberOfObstacles = 45;
-          numberOfObstacles2 = 45;
-          break;
-        case 9:
-          speed = 11;
-          timer = 100;
-          birdChances = 0.5;
-          numberOfObstacles = 50;
-          numberOfObstacles2 = 50;
-          break;
-    }
+function Setup() {    
+    speed = levelsPlayedParams[level].speed;
+    timer = levelsPlayedParams[level].distance;
+    numberOfObstacles = levelsPlayedParams[level].obstacles;
+    numberOfObstacles2 = levelsPlayedParams[level].obstacles;
+
     initialSpawnTimer = timer;
     spawnTimer = initialSpawnTimer;
-
     initialSpawnTimer2 = timer + 50;
     spawnTimer2 = initialSpawnTimer2;
+    currentLevel = level;
 }
 
 function SpawnObstacle() {
@@ -135,7 +114,7 @@ function SpawnObstacle() {
     var type;
     var w = 50;
     var h = 25;
-    var isBird = Math.random() < birdChances;
+    var isBird = Math.random() < 0.4;
     
     if (isBird) {
         obstacle = new Bird(canvas.width + w, canvas.height - h, w, h, '#2484E4', GROUND_HEIGHT);
@@ -152,7 +131,7 @@ function SpawnObstacle2() {
     var type;
     var w = 50;
     var h = 25;
-    var isBird = Math.random() < birdChances;
+    var isBird = Math.random() < 0.4;
     
     if (isBird) {
         obstacle = new Bird(canvas.width + w, canvas.height - h, w, h, '#2484E4', GROUND_HEIGHT_2);
@@ -220,6 +199,11 @@ function Update() {
             player.y + player.h > o.y
         ) {
             // obstacles = [];
+            if (timeAlive > 1) { 
+                timeAliveRecord.push(timeAlive);
+                localStorage.setItem('timeAliveRecord', JSON.stringify(timeAliveRecord)); 
+            }
+            timeAlive = 0;
             spawnTimer = initialSpawnTimer;
             gameSpeed = speed;
             failModal.style.display = "block";
@@ -242,12 +226,96 @@ function Update() {
             console.log(obstacles2);
             spawnTimer2 = initialSpawnTimer2 - gameSpeed * 8;
         } else if (obstacles2[numberOfObstacles2 - 1].x + obstacles2[numberOfObstacles2 - 1].w < 0 && player2.jumpTimer == 0) {
-            setTimeout(function() {
+            if (!levelCompletedCalled) {
+                levelCompletedCalled = true;
+                timeAliveRecord.push(timeAlive);
+                var chances = timeAliveRecord.length;
+                // Compute average time alive
+                var sum = 0;
+                for(var i = 0; i < timeAliveRecord.length; i++) {
+                    sum += timeAliveRecord[i];
+                }
+                averageTimeAlive = sum / timeAliveRecord.length;
+
+                // Find the parameters for a level with the closest avg time alive
+                var difference = 0;
+                var bestDifference = Infinity;
+                var repeatedTimeAlive = [];
+                for (var i = 0; i < levelParams.length; i++){
+                    if (levelParams[i].level === currentLevel) {
+                        // Look for the entry with the closest 'timeAlive' value
+                        difference = Math.abs(averageTimeAlive - levelParams[i].timeAlive);
+                        if (difference < bestDifference) {
+                            bestDifference = difference;
+                            repeatedTimeAlive = [i];
+                        } else if (difference === bestDifference) {
+                            repeatedTimeAlive.push(i);
+                        }
+                    }
+                }
+
+                var indexOfPlayerModel = repeatedTimeAlive[Math.floor(Math.random() * repeatedTimeAlive.length)];
+                var playerModel = levelParams[indexOfPlayerModel].generation;
+
+                // Find max time alive of the player model
+                var max = 0;
+                var repeatedMaxTimeAlive = [];
+                speed = speed === 5 ? 10 : speed;
+                speed = speed === 30 ? 25 : speed;
+                levelParams.forEach(function(item, i) {
+                    
+                    if (chances <= 5) {
+                        if (item.generation === playerModel && item.params.speed > speed) {
+                            if (item.timeAlive > max) {
+                                max = item.timeAlive;
+                                repeatedMaxTimeAlive = [i];
+                            } else if (max === item.timeAlive) {
+                                repeatedMaxTimeAlive.push(i);
+                            }
+                        }
+                    } else { // chances > 5
+                        if (item.generation === playerModel && item.params.speed < speed) {
+                            if (item.timeAlive > max) {
+                                max = item.timeAlive;
+                                repeatedMaxTimeAlive = [i];
+                            } else if (max === item.timeAlive) {
+                                repeatedMaxTimeAlive.push(i);
+                            }
+                        }
+                    }
+                });
+                rightLevel = repeatedMaxTimeAlive[Math.floor(Math.random() * repeatedMaxTimeAlive.length)];
+
+                if (!rightLevelRecord.includes(levelParams[rightLevel].level)) {
+                    rightLevelRecord.push(levelParams[rightLevel].level);
+                } else {
+                    while (rightLevelRecord.includes(levelParams[rightLevel].level)) {
+                        rightLevel++;
+                        if (rightLevel === levelParams.length) {
+                            rightLevel = 0;
+                        }
+                        if (rightLevelRecord.length === 9) {
+                            rightLevelRecord = [];
+                        }
+                    }
+                    rightLevelRecord.push(levelParams[rightLevel].level);
+                }
+                localStorage.setItem('rightLevelRecord', JSON.stringify(rightLevelRecord)); 
+
+                timeAliveRecord = [];
+                localStorage.setItem('timeAliveRecord', JSON.stringify(timeAliveRecord)); 
+                localStorage.setItem('rightLevel', rightLevel);
+                if (!levelsPlayedParams.hasOwnProperty(level + 1)) {
+                    levelsPlayedParams[level + 1] = levelParams[rightLevel].params;
+                }
+                localStorage.setItem('levelsPlayedParams', JSON.stringify(levelsPlayedParams));
+
+                Setup();
                 successModal.style.display = "block";
-            }, 1000);
-            if (level != 9) {
-                levelsCompleted[level + 1] = true;
-                localStorage.setItem('levelsCompleted', JSON.stringify(levelsCompleted));
+                    if (level != 9) {
+                        levelsCompleted[level + 1] = true;
+                        localStorage.setItem('levelsCompleted', JSON.stringify(levelsCompleted));
+                    }
             }
         }
         
@@ -274,6 +342,11 @@ function Update() {
             player2.y + player2.h > o2.y
         ) {
             // obstacles = [];
+            if (timeAlive > 1) { 
+                timeAliveRecord.push(timeAlive);
+                localStorage.setItem('timeAliveRecord', JSON.stringify(timeAliveRecord)); 
+            }
+            timeAlive = 0;
             spawnTimer = initialSpawnTimer;
             gameSpeed = speed;
             failModal.style.display = "block";
@@ -325,5 +398,5 @@ function getParameterByName(name, url) {
 
 var level = parseInt(getParameterByName('level'));
 
-Setup(level);
+Setup();
 Start();
