@@ -13,8 +13,8 @@ var keys = {};
 var levelsCompleted = JSON.parse(localStorage.getItem("levelsCompleted"));
 var levelCompletedCalled = false;
 
-const GROUND_HEIGHT = 100;
-const GROUND_HEIGHT_2 = 350;
+const GROUND_HEIGHT = window.innerHeight / 2 - window.innerHeight / 4 //100;
+const GROUND_HEIGHT_2 = window.innerHeight / 2 + window.innerHeight / 6 //350;
 
 // Difficulty parameters
 var speed;
